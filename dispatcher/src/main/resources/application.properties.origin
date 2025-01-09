@@ -1,0 +1,10 @@
+spring.application.name=dispatcher
+server.port=8084
+
+bot.name=
+bot.token=
+
+spring.rabbitmq.host=
+spring.rabbitmq.port=
+spring.rabbitmq.username=
+spring.rabbitmq.password=

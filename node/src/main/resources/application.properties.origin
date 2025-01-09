@@ -1,0 +1,14 @@
+spring.application.name=node
+server.port=8085
+
+spring.rabbitmq.host=
+spring.rabbitmq.port=
+spring.rabbitmq.username=
+spring.rabbitmq.password=
+
+spring.datasource.url=
+spring.datasource.username=
+spring.datasource.password=
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.show-sql=true
+spring.jpa.generate-ddl=true

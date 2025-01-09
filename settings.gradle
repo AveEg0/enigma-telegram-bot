@@ -1,0 +1,6 @@
+rootProject.name = 'enigma'
+include 'dispatcher'
+include 'common-rabbitmq'
+include 'node'
+include 'common-jpa'
+

@@ -1,5 +1,8 @@
 ## Overview
-Repository creates for fast running development process with configuration, which are the same from project to project.
+Simple telegram bot that saves text, docs, photos to the database.
+
+## Before Start
+You need to replace application.origin.properties in 'node' and 'dispatcher' with application.properties. You must just create application.properties in the same directory and copy paste into it all text from application.origin.properties and set your own settings.
 
 ## Building
 ...
