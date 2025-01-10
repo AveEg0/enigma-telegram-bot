@@ -12,3 +12,7 @@ spring.datasource.password=
 spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.show-sql=true
 spring.jpa.generate-ddl=true
+
+token=
+service.file_info.url=https://api.telegram.org/file/bot{token}/getFile?file_id={fileId}
+service.file_storage.url=https://api.telegram.org/file/bot{token}/{filePath}

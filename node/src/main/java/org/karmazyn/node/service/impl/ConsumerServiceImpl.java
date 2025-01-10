@@ -3,10 +3,8 @@ package org.karmazyn.node.service.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.karmazyn.node.service.ConsumerService;
 import org.karmazyn.node.service.MainService;
-import org.karmazyn.node.service.ProducerService;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import static org.karmazyn.model.RabbitQueue.*;
 
@@ -29,14 +27,14 @@ public class ConsumerServiceImpl implements ConsumerService {
     @Override
     @RabbitListener(queues = DOC_MESSAGE_UPDATE)
     public void consumeDocMessageUpdate(Update update) {
-        log.info("NODE: Consuming document update {}", update);
+        log.info("NODE: Consuming document update");
         mainService.processDocMessage(update);
     }
 
     @Override
     @RabbitListener(queues = PHOTO_MESSAGE_UPDATE)
     public void consumePhotoMessageUpdate(Update update) {
-        log.info("NODE: Consuming photo update {}", update);
+        log.info("NODE: Consuming photo update");
         mainService.processPhotoMessage(update);
     }
 }

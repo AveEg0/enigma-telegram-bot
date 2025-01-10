@@ -2,22 +2,24 @@ package org.karmazyn.node.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.karmazyn.jpa.dao.AppUserDao;
+import org.karmazyn.jpa.entity.AppDocument;
 import org.karmazyn.jpa.entity.AppUser;
-import org.karmazyn.jpa.entity.enums.UserState;
 import org.karmazyn.node.dao.RawDataDao;
 import org.karmazyn.node.entity.RawData;
+import org.karmazyn.node.exception.UploadFileException;
+import org.karmazyn.node.service.FileService;
 import org.karmazyn.node.service.MainService;
 import org.karmazyn.node.service.ProducerService;
+import org.karmazyn.node.service.enums.ServiceCommand;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
 
 import java.util.Objects;
 
 import static org.karmazyn.jpa.entity.enums.UserState.BASIC_STATE;
 import static org.karmazyn.jpa.entity.enums.UserState.WAIT_FOR_EMAIL_STATE;
-import static org.karmazyn.node.service.enums.ServiceCommands.*;
+import static org.karmazyn.node.service.enums.ServiceCommand.*;
 
 @Service
 @Slf4j
@@ -25,11 +27,13 @@ public class MainServiceImpl implements MainService {
    private final RawDataDao rawDataDao;
    private final AppUserDao appUserDao;
    private final ProducerService producerService;
+   private final FileService fileService;
 
-    public MainServiceImpl(RawDataDao rawDataDao, AppUserDao appUserDao, ProducerService producerService) {
+    public MainServiceImpl(RawDataDao rawDataDao, AppUserDao appUserDao, ProducerService producerService, FileService fileService) {
         this.rawDataDao = rawDataDao;
         this.appUserDao = appUserDao;
         this.producerService = producerService;
+        this.fileService = fileService;
     }
 
     @Override
@@ -39,8 +43,8 @@ public class MainServiceImpl implements MainService {
         var userState = appUser.getState();
         var text = update.getMessage().getText();
         var output = "";
-
-        if (CANCEL.equals(text)) {
+        ServiceCommand serviceCommand = ServiceCommand.fromValue(text);
+        if (CANCEL.equals(serviceCommand)) {
             output = cancelProcess(appUser);
         } else if (BASIC_STATE.equals(userState)) {
             output = processServiceCommand(appUser, text);
@@ -65,10 +69,17 @@ public class MainServiceImpl implements MainService {
         if (isNotAllowedToSendContent(chatId, appUser)){
             return;
         }
-
-        //TODO add doc saving
-        var answer = "Document saved successfully! Url for uploading : http://test.com/get-doc/666";
-        sendAnswer(answer, chatId);
+        String answer;
+        try {
+            AppDocument doc = fileService.processDoc(update.getMessage());
+            //TODO add generation of url
+            answer = "Document saved successfully! Url for uploading : url";
+            sendAnswer(answer, chatId);
+        } catch (UploadFileException e) {
+            log.error(e.getMessage());
+            answer = "Upload file failed! Please try again.";
+            sendAnswer(answer, chatId);
+        }
     }
 
 
@@ -108,12 +119,13 @@ public class MainServiceImpl implements MainService {
     }
 
     private String processServiceCommand(AppUser appUser, String cmd) {
-       if (REGISTRATION.equals(cmd)) {
+        var serviceCommand = ServiceCommand.fromValue(cmd);
+       if (REGISTRATION.equals(serviceCommand)) {
            //TODO add registration
            return "Temporary unavailable";
-       } else if (HELP.equals(cmd)) {
+       } else if (HELP.equals(serviceCommand)) {
            return help();
-       } else if (START.equals(cmd)) {
+       } else if (START.equals(serviceCommand)) {
        return "Enter '/help' to view all available commands.";
        } else {
            return "Unknown command! Enter '/help' to view all available commands.";
@@ -121,9 +133,11 @@ public class MainServiceImpl implements MainService {
     }
 
     private String help() {
-        return "List of all available commands\n"
-                + "/cancel - cancel current command\n"
-                + "/registration - register new user\n";
+        return """
+                List of all available commands
+                /cancel - cancel current command
+                /registration - register new user
+                """;
     }
 
     private String cancelProcess(AppUser appUser) {
