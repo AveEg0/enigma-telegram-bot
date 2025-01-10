@@ -3,6 +3,7 @@ package org.karmazyn.node.service.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.karmazyn.jpa.dao.AppUserDao;
 import org.karmazyn.jpa.entity.AppDocument;
+import org.karmazyn.jpa.entity.AppPhoto;
 import org.karmazyn.jpa.entity.AppUser;
 import org.karmazyn.node.dao.RawDataDao;
 import org.karmazyn.node.entity.RawData;
@@ -92,10 +93,17 @@ public class MainServiceImpl implements MainService {
         if (isNotAllowedToSendContent(chatId, appUser)){
             return;
         }
-
-        //TODO add doc saving
-        var answer = "Photo saved successfully! Url for uploading : http://test.com/get-photo/666";
-        sendAnswer(answer, chatId);
+        String answer;
+        try {
+            AppPhoto photo = fileService.processPhoto(update.getMessage());
+            //TODO add generation of url
+            answer = "Photo saved successfully! Url for uploading : url";
+            sendAnswer(answer, chatId);
+        } catch (UploadFileException e) {
+            log.error(e.getMessage());
+            answer = "Upload photo failed! Please try again.";
+            sendAnswer(answer, chatId);
+        }
     }
     private boolean isNotAllowedToSendContent(Long chatId, AppUser appUser) {
         var userState = appUser.getState();

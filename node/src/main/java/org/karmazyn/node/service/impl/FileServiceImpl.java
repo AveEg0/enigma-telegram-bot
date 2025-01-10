@@ -3,8 +3,10 @@ package org.karmazyn.node.service.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.karmazyn.jpa.dao.AppDocumentDao;
+import org.karmazyn.jpa.dao.AppPhotoDao;
 import org.karmazyn.jpa.dao.BinaryContentDao;
 import org.karmazyn.jpa.entity.AppDocument;
+import org.karmazyn.jpa.entity.AppPhoto;
 import org.karmazyn.jpa.entity.BinaryContent;
 import org.karmazyn.node.exception.UploadFileException;
 import org.karmazyn.node.service.FileService;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,33 +37,67 @@ public class FileServiceImpl implements FileService {
     private String fileStorageUrl;
     private final AppDocumentDao appDocumentDao;
     private final BinaryContentDao binaryContentDao;
+    private final AppPhotoDao appPhotoDao;
 
-    public FileServiceImpl(AppDocumentDao appDocumentDao, BinaryContentDao binaryContentDao) {
+    public FileServiceImpl(AppDocumentDao appDocumentDao, BinaryContentDao binaryContentDao, AppPhotoDao appPhotoDao) {
         this.appDocumentDao = appDocumentDao;
         this.binaryContentDao = binaryContentDao;
+        this.appPhotoDao = appPhotoDao;
     }
 
     @Override
-    public AppDocument processDoc(Message externalMessage) {
-        String fileId = externalMessage.getDocument().getFileId();
-        ResponseEntity<String> response = getFilePath(fileId);
+    public AppDocument processDoc(Message telegramMessage) {
+        String fileId = telegramMessage.getDocument().getFileId();
+        ResponseEntity<String> response = getTelegramFilePath(fileId);
         if (response.getStatusCode() == HttpStatus.OK) {
-            JSONObject jsonObject = new JSONObject(response.getBody());
-            String filePath = String.valueOf(jsonObject
-                    .getJSONObject("result")
-                    .getString("file_path"));
-            byte[] fileInByte = downloadFile(filePath);
-            BinaryContent transientBinaryContent = BinaryContent.builder()
-                    .fileAsArrayOfBytes(fileInByte)
-                    .build();
-            BinaryContent persistentBinaryContent = binaryContentDao.save(transientBinaryContent);
-            Document telegramDoc = externalMessage.getDocument();
+            BinaryContent persistentBinaryContent = getPersistantBinaryContent(response);
+            Document telegramDoc = telegramMessage.getDocument();
             AppDocument trasientAppDocument = buildTransientAppDoc(telegramDoc, persistentBinaryContent);
             return appDocumentDao.save(trasientAppDocument);
         } else {
             log.error("Error downloading file, response: {}", response);
             throw new UploadFileException("Bad response from telegram service " + response);
         }
+    }
+
+    private BinaryContent getPersistantBinaryContent(ResponseEntity<String> response) {
+        String filePath = getFilePath(response);
+        byte[] fileInByte = downloadFile(filePath);
+        var transientBinaryContent = BinaryContent.builder()
+                .fileAsArrayOfBytes(fileInByte)
+                .build();
+        return binaryContentDao.save(transientBinaryContent);
+    }
+
+    private static String getFilePath(ResponseEntity<String> response) {
+        JSONObject jsonObject = new JSONObject(response.getBody());
+        return String.valueOf(jsonObject
+                .getJSONObject("result")
+                .getString("file_path"));
+    }
+
+    @Override
+    public AppPhoto processPhoto(Message telegramMessage) {
+       //TODO add processing multiple photos
+        PhotoSize telegramPhoto = telegramMessage.getPhoto().getFirst();
+        String fileId = telegramPhoto.getFileId();
+        ResponseEntity<String> response = getTelegramFilePath(fileId);
+        if (response.getStatusCode() == HttpStatus.OK) {
+            BinaryContent persistentBinaryContent = getPersistantBinaryContent(response);
+            AppPhoto transientAppPhoto = buildTransientAppPhoto(telegramPhoto, persistentBinaryContent);
+            return appPhotoDao.save(transientAppPhoto);
+        } else {
+            log.error("Error downloading file, response: {}", response);
+            throw new UploadFileException("Bad response from telegram service " + response);
+        }
+    }
+
+    private AppPhoto buildTransientAppPhoto(PhotoSize telegramPhoto, BinaryContent persistentBinaryContent) {
+        return AppPhoto.builder()
+                .telegramFileId(telegramPhoto.getFileId())
+                .binaryContent(persistentBinaryContent)
+                .fileSize(telegramPhoto.getFileSize())
+                .build();
     }
 
     private AppDocument buildTransientAppDoc(Document telegramDoc, BinaryContent persistentBinaryContent) {
@@ -99,7 +136,7 @@ public class FileServiceImpl implements FileService {
         }
     }
 
-    private ResponseEntity<String> getFilePath(String fileId) {
+    private ResponseEntity<String> getTelegramFilePath(String fileId) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<String> request = new HttpEntity<>(headers);
